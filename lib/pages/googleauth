@@ -1,0 +1,85 @@
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import '../api/apis.dart';
+import 'homepage.dart';
+
+GoogleSignIn googleSignIn = GoogleSignIn();
+final FirebaseAuth auth = FirebaseAuth.instance;
+CollectionReference users = FirebaseFirestore.instance.collection('users');
+
+// changing return type to void
+// as bool was not needed here
+class GauthFunction {
+  static BuildContext? get context => null;
+
+  static Future<User?> signInWithGoogle() async {
+    try {
+      await InternetAddress.lookup('google.com');
+      final GoogleSignInAccount? googleSignInAccount =
+          await googleSignIn.signIn();
+
+      if (googleSignInAccount != null) {
+        final GoogleSignInAuthentication googleSignInAuthentication =
+            await googleSignInAccount.authentication;
+
+        final AuthCredential credential = GoogleAuthProvider.credential(
+            accessToken: googleSignInAuthentication.accessToken,
+            idToken: googleSignInAuthentication.idToken);
+
+        final UserCredential authResult =
+            await auth.signInWithCredential(credential);
+
+        final User? user = authResult.user;
+
+        // var userData = {
+        //   'name': googleSignInAccount.displayName,
+        //   'provider': 'google',
+        //   'photoUrl': googleSignInAccount.photoUrl,
+        //   'email': googleSignInAccount.email,
+        // };
+
+        signInWithGoogle().then((user) async {
+          Navigator.pop(context!);
+          if (await Apis.userExists(user?.uid)) {
+            // old user
+            // doc.reference.update(userData);
+
+            Navigator.pushReplacement(context!,
+                MaterialPageRoute(builder: (_) => const HomeScreen()));
+          } else {
+            // new user
+
+            await Apis.createUser().then((value) {
+              Navigator.pushReplacement(context!,
+                  MaterialPageRoute(builder: (_) => const HomeScreen()));
+            });
+          }
+        });
+      }
+    } catch (PlatformException) {
+      print(PlatformException);
+      print("Sign in not successful !");
+      // better show an alert here
+    }
+    return null;
+  }
+}
+
+// class Profile {
+//   static Widget getProfile() {
+//     if (googleSignIn.currentUser != null) {
+//       return Image.network(googleSignIn.currentUser?.photoUrl ?? '',
+//           width: 50, height: 50);
+//     } else {
+//       return Icon(
+//         Icons.account_circle,
+//         size: 50,
+//       );
+//     }
+//   }
+// }
